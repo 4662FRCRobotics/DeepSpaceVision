@@ -144,7 +144,7 @@ def startCamera(config, i):
 
     #server = MjpegServer("CVstream")
 
-    camSink = inst.getVideo()
+    camSink = inst.getVideo(name=config.name)
 
     camera.setConfigJson(json.dumps(config.config))
     camera.setConnectionStrategy(VideoSource.ConnectionStrategy.kKeepOpen)
@@ -191,23 +191,36 @@ if __name__ == "__main__":
         cameras.append(camera_dict)
         i += 1
     
-    img = np.zeros(shape=(120, 160, 3), dtype=np.uint8)
+    img1 = np.zeros(shape=(120, 160, 3), dtype=np.uint8)
+    img2 = np.zeros(shape=(120, 160, 3), dtype=np.uint8)
 
     # loop forever
+
     while True:
-        for camera in cameras:
+        camera1, camera2 = cameras[:2]
+        time1, img1 = camera1["sink"].grabFrame(img1)
 
-            time_, img = camera["sink"].grabFrame(img)
-            if time_ == 0:
-                continue
+        time2, img2 = camera2["sink"].grabFrame(img2)
+        if time1 == 0:
+            continue
 
-            # image processing logic here
-            """
-            for r in range(len(img)):
-                for c in range(len(img[r])):
-                    pixel = img[r, c]
-                    if pixel[0] + pixel[1] + pixel[2] > 127:
-                        img[r, c] = np.array([0, 0, 0], dtype=np.uint8)
-            """
-            
-            camera["source"].putFrame(img)
+        # image processing logic here
+
+        img1 = cv2.rotate(img1, cv2.ROTATE_90_CLOCKWISE)
+
+        """
+        # drawing a rectangle
+        cv2.rectangle(img, (25, 25), (100, 100), (255, 127, 0))
+
+        # writing text
+        cv2.putText(img, "Epic", (1, 50), cv2.FONT_HERSHEY_TRIPLEX, 0.5, (0, 0, 0))
+
+        # changing individual pixels using python
+        for r in range(len(img)):
+            for c in range(len(img[r])):
+                pixel = img[r, c].astype(np.uint16)
+                img[r, c] = np.array([255, pixel[1], pixel[2]], dtype=np.uint8)
+        """
+        
+        camera1["source"].putFrame(img1)
+        camera2["source"].putFrame(img2)
