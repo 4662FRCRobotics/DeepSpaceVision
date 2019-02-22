@@ -12,6 +12,7 @@ import sys
 import cv2
 import numpy as np
 import cscore
+import random
 # from scipy import ndimage
 
 from cscore import CameraServer, VideoSource, UsbCamera, MjpegServer
@@ -175,11 +176,23 @@ if __name__ == "__main__":
         print("Setting up NetworkTables client for team {}".format(team))
         ntinst.startClientTeam(team)
 
+
+    PI_ADDRESS = "10.46.62.10"
+    CAMERA_ADDRESS_DELIMETER = ","
+
+    
+    
     # start cameras
     cameras = []
     i = 1
 
     for cameraConfig in cameraConfigs:
+
+        PORT = 1180 + 2 * i
+
+
+        NetworkTablesInstance.getDefault().getEntry("/CameraPublisher/PiCamera/Streams").setStringArray("mjpg:http://%s:%s/?action=stream" % (PI_ADDRESS, PORT))
+
         camera, camSink, camSource = startCamera(cameraConfig, i)
 
         camera_dict = {
@@ -199,28 +212,27 @@ if __name__ == "__main__":
     while True:
         camera1, camera2 = cameras[:2]
         time1, img1 = camera1["sink"].grabFrame(img1)
-
         time2, img2 = camera2["sink"].grabFrame(img2)
+
         if time1 == 0:
             continue
 
         # image processing logic here
-
-        img1 = cv2.rotate(img1, cv2.ROTATE_90_CLOCKWISE)
-
-        """
+        
+        
+        
         # drawing a rectangle
-        cv2.rectangle(img, (25, 25), (100, 100), (255, 127, 0))
+        # cv2.rectangle(img, (25, 25), (100, 100), (255, 127, 0))
 
         # writing text
-        cv2.putText(img, "Epic", (1, 50), cv2.FONT_HERSHEY_TRIPLEX, 0.5, (0, 0, 0))
+        # cv2.putText(img, "Epic", (1, 50), cv2.FONT_HERSHEY_TRIPLEX, 0.5, (0, 0, 0))
 
         # changing individual pixels using python
-        for r in range(len(img)):
-            for c in range(len(img[r])):
-                pixel = img[r, c].astype(np.uint16)
-                img[r, c] = np.array([255, pixel[1], pixel[2]], dtype=np.uint8)
-        """
-        
+        # for r in range(len(img)):
+        #     for c in range(len(img[r])):
+        #         pixel = img[r, c].astype(np.uint16)
+        #         img[r, c] = np.array([255, pixel[1], pixel[2]], dtype=np.uint8)
+
+        # update the camera feed with the edited image
         camera1["source"].putFrame(img1)
         camera2["source"].putFrame(img2)
