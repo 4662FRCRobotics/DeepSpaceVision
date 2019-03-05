@@ -139,7 +139,13 @@ def readConfig():
 """Start running the camera."""
 def startCamera(config, i):
     print("Starting camera '{}' on {}".format(config.name, config.path))
+
+    cameraName = "Camera_%s" % i
+
     inst = CameraServer.getInstance()
+
+    # inst.addSwitchedCamera(cameraName)
+
     camera = UsbCamera(config.name, config.path)
     server = inst.startAutomaticCapture(camera=camera, return_server=False)
 
@@ -153,7 +159,7 @@ def startCamera(config, i):
     #if config.streamConfig is not None:
     #    server.setConfigJson(json.dumps(config.streamConfig))
 
-    camSource = inst.putVideo("Camera_" + str(i), 160, 120)
+    camSource = inst.putVideo(cameraName, 160, 120)
 
     #server.setSource(camSource)
 
@@ -190,8 +196,7 @@ if __name__ == "__main__":
 
         PORT = 1180 + 2 * i
 
-
-        NetworkTablesInstance.getDefault().getEntry("/CameraPublisher/PiCamera/Streams").setStringArray("mjpg:http://%s:%s/?action=stream" % (PI_ADDRESS, PORT))
+        # NetworkTablesInstance.getDefault().getEntry("/CameraPublisher/PiCamera/Streams").setStringArray("mjpg:http://%s:%s/?action=stream" % (PI_ADDRESS, PORT))
 
         camera, camSink, camSource = startCamera(cameraConfig, i)
 
@@ -208,7 +213,7 @@ if __name__ == "__main__":
     img2 = np.zeros(shape=(120, 160, 3), dtype=np.uint8)
 
     # loop forever
-
+    print("Looping")
     while True:
         camera1, camera2 = cameras[:2]
         time1, img1 = camera1["sink"].grabFrame(img1)
