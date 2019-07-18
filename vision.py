@@ -16,7 +16,7 @@ import random
 # from scipy import ndimage
 
 from cscore import CameraServer, VideoSource, UsbCamera, MjpegServer
-from networktables import NetworkTablesInstance
+from networktables import NetworkTablesInstance, NetworkTables
 
 #   JSON format:
 #   {
@@ -149,8 +149,6 @@ def startCamera(config, i):
     camera = UsbCamera(config.name, config.path)
     server = inst.startAutomaticCapture(camera=camera, return_server=False)
 
-    #server = MjpegServer("CVstream")
-
     camSink = inst.getVideo(name=config.name)
 
     camera.setConfigJson(json.dumps(config.config))
@@ -161,9 +159,8 @@ def startCamera(config, i):
 
     camSource = inst.putVideo(cameraName, 160, 120)
 
-    #server.setSource(camSource)
-
     return camera, camSink, camSource
+
 
 if __name__ == "__main__":
     if len(sys.argv) >= 2:
@@ -175,6 +172,9 @@ if __name__ == "__main__":
 
     # start NetworkTables
     ntinst = NetworkTablesInstance.getDefault()
+
+    
+
     if server:
         print("Setting up NetworkTables server")
         ntinst.startServer()
@@ -182,6 +182,23 @@ if __name__ == "__main__":
         print("Setting up NetworkTables client for team {}".format(team))
         ntinst.startClientTeam(team)
 
+    print("Getting vision table")
+    visionTable = NetworkTables.getTable("Vision")
+    print("Got vision table")
+
+    '''
+    isVisionOn = False
+    print("Getting entry")
+    
+    isVisionOn = visionTable.getBoolean("isVisionOn", isVisionOn)
+    testEntry = visionTable.getEntry("test")
+    testEntry.setBoolean(True)
+
+    print("isVisionOn: {}".format(isVisionOn))
+    print(dir(visionTable))
+
+    print(visionTable.getKeys())
+    '''
 
     PI_ADDRESS = "10.46.62.10"
     CAMERA_ADDRESS_DELIMETER = ","
@@ -195,8 +212,6 @@ if __name__ == "__main__":
     for cameraConfig in cameraConfigs:
 
         PORT = 1180 + 2 * i
-
-        # NetworkTablesInstance.getDefault().getEntry("/CameraPublisher/PiCamera/Streams").setStringArray("mjpg:http://%s:%s/?action=stream" % (PI_ADDRESS, PORT))
 
         camera, camSink, camSource = startCamera(cameraConfig, i)
 
@@ -212,6 +227,8 @@ if __name__ == "__main__":
     img1 = np.zeros(shape=(120, 160, 3), dtype=np.uint8)
     img2 = np.zeros(shape=(120, 160, 3), dtype=np.uint8)
 
+    isVisionOn = False
+
     # loop forever
     print("Looping")
     while True:
@@ -223,11 +240,14 @@ if __name__ == "__main__":
             continue
 
         # image processing logic here
+
+        # color is in b, g, a
         
-        
-        
-        # drawing a rectangle
-        # cv2.rectangle(img, (25, 25), (100, 100), (255, 127, 0))
+        isVisionOn = visionTable.getBoolean("isVisionOn", isVisionOn)
+        if isVisionOn:
+
+            # drawing a rectangle
+            cv2.rectangle(img1, (105, 95), (215, 135), (0, 0, 0))
 
         # writing text
         # cv2.putText(img, "Epic", (1, 50), cv2.FONT_HERSHEY_TRIPLEX, 0.5, (0, 0, 0))
