@@ -13,10 +13,12 @@ import cv2
 import numpy as np
 import cscore
 import random
+import math
 # from scipy import ndimage
 
 from cscore import CameraServer, VideoSource, UsbCamera, MjpegServer
 from networktables import NetworkTablesInstance, NetworkTables
+from deepspacecargo import DeepSpaceCargo
 
 #   JSON format:
 #   {
@@ -56,8 +58,18 @@ configFile = "/boot/frc.json"
 class CameraConfig: pass
 
 team = None
+cameraWidths = []
+cameraHeights = []
 server = False
 cameraConfigs = []
+
+DEG_TO_RAD = math.pi / 180
+RAD_TO_DEG = 180 / math.pi
+
+FOV_RATIO_Y = 15 / 41
+TARGET_HEIGHT = 5.75
+
+CAMERA_SWEETSPOT = 32
 
 """Report parse error."""
 def parseError(str):
@@ -92,6 +104,8 @@ def readCameraConfig(config):
 """Read configuration file."""
 def readConfig():
     global team
+    global cameraWidths
+    global cameraHeights
     global server
 
     # parse file
@@ -131,6 +145,8 @@ def readConfig():
         parseError("could not read cameras")
         return False
     for camera in cameras:
+        cameraWidths.append(camera["width"])
+        cameraHeights.append(camera["height"])
         if not readCameraConfig(camera):
             return False
 
@@ -162,6 +178,16 @@ def startCamera(config, i):
     return camera, camSink, camSource
 
 
+CAMERA_FOV_Y = math.atan(FOV_RATIO_Y) * RAD_TO_DEG * 2
+
+
+def calculate_distance(target_pixel_height):
+    normalizedHeight = 2 * target_pixel_height / cameraHeights[0]
+    distance = TARGET_HEIGHT / (normalizedHeight * math.tan(math.radians(CAMERA_FOV_Y)))
+
+    return distance
+
+
 if __name__ == "__main__":
     if len(sys.argv) >= 2:
         configFile = sys.argv[1]
@@ -173,7 +199,6 @@ if __name__ == "__main__":
     # start NetworkTables
     ntinst = NetworkTablesInstance.getDefault()
 
-    
 
     if server:
         print("Setting up NetworkTables server")
@@ -185,6 +210,12 @@ if __name__ == "__main__":
     print("Getting vision table")
     visionTable = NetworkTables.getTable("Vision")
     print("Got vision table")
+
+    isTargetFoundEntry = visionTable.getEntry("isTargetFound")
+    targetCountEntry = visionTable.getEntry("targetCount")
+    boundingRectxywhEntry = visionTable.getEntry("boundingRectxywh")
+    targetOffsetEntry = visionTable.getEntry("targetOffset")
+    distanceToTargetEntry = visionTable.getEntry("distanceToTarget")
 
     '''
     isVisionOn = False
@@ -202,8 +233,6 @@ if __name__ == "__main__":
 
     PI_ADDRESS = "10.46.62.10"
     CAMERA_ADDRESS_DELIMETER = ","
-
-    
     
     # start cameras
     cameras = []
@@ -223,11 +252,13 @@ if __name__ == "__main__":
 
         cameras.append(camera_dict)
         i += 1
-    
+
     img1 = np.zeros(shape=(120, 160, 3), dtype=np.uint8)
     img2 = np.zeros(shape=(120, 160, 3), dtype=np.uint8)
 
     isVisionOn = False
+
+    deepSpaceCargo = DeepSpaceCargo()
 
     # loop forever
     print("Looping")
@@ -244,10 +275,54 @@ if __name__ == "__main__":
         # color is in b, g, a
         
         isVisionOn = visionTable.getBoolean("isVisionOn", isVisionOn)
+
+        isTargetFound = False
+        objects_found = 0
+        contours = []
+        x_sum = 0
+        x_avg = 0
+
+        y_sum = 0
+        y_avg = 0
+        offset = 0
+
+        distance = 0
+
+        x,y,w,h = 0, 0, 0, 0
+
         if isVisionOn:
+
+            deepSpaceCargo.process(img1) # take blobs that look like the reflective tape
+            contours = deepSpaceCargo.filter_contours_output
+            objects_found = len(contours)
+
+            if (objects_found >= 2):
+                isTargetFound = True
+
+                for i in range(2): # draw a bounding box around the first 2 blobs
+                    r1 = cv2.boundingRect(contours[i])
+                    x,y,w,h = r1
+
+                    x_sum += x + w / 2
+                    y_sum += h
+
+                    cv2.rectangle(img1, (x, y), (x + w, y + h), (0, 255, 0))
+
+                x_avg = x_sum / 2
+                y_avg = y_sum / 2
+                camera1_width = cameraWidths[0]
+                offset = x_avg - (camera1_width / 2)
+
+                distance = calculate_distance(y_avg)
 
             # drawing a rectangle
             cv2.rectangle(img1, (105, 95), (215, 135), (0, 0, 0))
+
+        targetOffsetEntry.setNumber(offset)
+        isTargetFoundEntry.setBoolean(isTargetFound)
+        targetCountEntry.setNumber(objects_found)
+        boundingRectxywhEntry.setNumberArray([x, y, w, h])
+        distanceToTargetEntry.setNumber(distance)
 
         # writing text
         # cv2.putText(img, "Epic", (1, 50), cv2.FONT_HERSHEY_TRIPLEX, 0.5, (0, 0, 0))
