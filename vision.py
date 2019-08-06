@@ -69,7 +69,7 @@ RAD_TO_DEG = 180 / math.pi
 FOV_RATIO_Y = 15 / 41
 TARGET_HEIGHT = 5.75
 
-CAMERA_SWEETSPOT = 32
+CAMERA_OFFSET = 32
 
 """Report parse error."""
 def parseError(str):
@@ -185,7 +185,7 @@ def calculate_distance(target_pixel_height):
     normalizedHeight = 2 * target_pixel_height / cameraHeights[0]
     distance = TARGET_HEIGHT / (normalizedHeight * math.tan(math.radians(CAMERA_FOV_Y)))
 
-    return distance
+    return distance - CAMERA_OFFSET
 
 
 if __name__ == "__main__":
