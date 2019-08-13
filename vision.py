@@ -66,7 +66,7 @@ cameraConfigs = []
 DEG_TO_RAD = math.pi / 180
 RAD_TO_DEG = 180 / math.pi
 
-FOV_RATIO_Y = 15 / 41
+CAMERA_FOV_Y = 40.2 # degrees
 TARGET_HEIGHT = 5.75
 
 CAMERA_OFFSET = 32
@@ -177,15 +177,19 @@ def startCamera(config, i):
 
     return camera, camSink, camSource
 
+# TARGET_HEIGHT_TIMES_CAMERA_HEIGHT = TARGET_HEIGHT * cameraHeights[0]
+# HEIGHT_TO_DISTANCE_RATIO = math.tan(math.radians(CAMERA_FOV_Y))
 
-CAMERA_FOV_Y = math.atan(FOV_RATIO_Y) * RAD_TO_DEG * 2
+def calculate_distance(target_pixel_height): # calculate distance of target from 
 
+    # normalizedHeight = 2 * target_pixel_height / cameraHeights[0]
+    # distance = TARGET_HEIGHT / (normalizedHeight * math.tan(math.radians(CAMERA_FOV_Y))) # distance from camera to target
 
-def calculate_distance(target_pixel_height):
-    normalizedHeight = 2 * target_pixel_height / cameraHeights[0]
-    distance = TARGET_HEIGHT / (normalizedHeight * math.tan(math.radians(CAMERA_FOV_Y)))
+    distance = TARGET_HEIGHT_TIMES_CAMERA_HEIGHT / ( target_pixel_height * HEIGHT_TO_DISTANCE_RATIO) # distance from camera to target
 
-    return distance - CAMERA_OFFSET
+    print("Target Pixel Height: {}".format(target_pixel_height))
+
+    return distance # - CAMERA_OFFSET # subtract off the distance from the camera to the front of the robot
 
 
 if __name__ == "__main__":
@@ -260,6 +264,9 @@ if __name__ == "__main__":
 
     deepSpaceCargo = DeepSpaceCargo()
 
+    TARGET_HEIGHT_TIMES_CAMERA_HEIGHT = TARGET_HEIGHT * cameraHeights[0]
+    HEIGHT_TO_DISTANCE_RATIO = math.tan(math.radians(CAMERA_FOV_Y))
+
     # loop forever
     print("Looping")
     while True:
@@ -293,8 +300,11 @@ if __name__ == "__main__":
         if isVisionOn:
 
             deepSpaceCargo.process(img1) # take blobs that look like the reflective tape
-            contours = deepSpaceCargo.filter_contours_output
+            contours = deepSpaceCargo.filter_contours_output # take the result from the image processing
             objects_found = len(contours)
+
+            #np.sort(contours, order='area')
+            #sorted(contours, key=attrgetter('area'), reverse=True)
 
             if (objects_found >= 2):
                 isTargetFound = True
@@ -308,6 +318,14 @@ if __name__ == "__main__":
 
                     cv2.rectangle(img1, (x, y), (x + w, y + h), (0, 255, 0))
 
+                    print("Hieght: {}".format(h))
+
+                '''for i in range(2, min(4, objects_found)): # draw bounding box around 2 other blobs if found
+                    r2 = cv2.boundingRect(contours[i])
+                    x2, y2, w2, h2
+
+                    cv2.rectangle(img1, (x2, y2), (x2 + w2, y2 + h2), (0, 0, 255))'''
+
                 x_avg = x_sum / 2
                 y_avg = y_sum / 2
                 camera1_width = cameraWidths[0]
@@ -315,7 +333,7 @@ if __name__ == "__main__":
 
                 distance = calculate_distance(y_avg)
 
-            # drawing a rectangle
+            # drawing a rectangle for manual targeting
             cv2.rectangle(img1, (105, 95), (215, 135), (0, 0, 0))
 
         targetOffsetEntry.setNumber(offset)
